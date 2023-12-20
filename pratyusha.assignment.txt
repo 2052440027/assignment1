@@ -1,0 +1,254 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 3  # Number of replicas you want
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+
+
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: NodePort
+
+
+
+
+version: '3'
+
+services:
+  # Database
+  db:
+    image: mysql:5.7
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    networks:
+      - wpsite
+  # phpmyadmin
+  phpmyadmin:
+    depends_on:
+      - db
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    ports:
+      - '8080:80'
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: password 
+    networks:
+      - wpsite
+  # Wordpress
+  wordpress:
+    depends_on:
+      - db
+    image: wordpress:latest
+    ports:
+      - '8000:80'
+    restart: always
+    volumes: ['./:/var/www/html']
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+    networks:
+      - wpsite
+networks:
+  wpsite:
+volumes:
+  db_data:
+
+
+
+
+
+app.js
+
+const express = require('express');
+const app = express();
+
+app.get('/', (req, res) => {
+  res.send('Hello, Docker!');
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+
+package.json
+
+{
+  "name": "docker-node-app",
+  "version": "1.0.0",
+  "description": "A simple Node.js app for Docker",
+  "main": "app.js",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
+
+
+Dockerfile
+
+# Use an official Node.js runtime as a parent image
+FROM node:14
+
+# Set the working directory in the container
+WORKDIR /usr/src/app
+
+# Copy package.json and package-lock.json to the container
+COPY package*.json ./
+
+# Install app dependencies
+RUN npm install
+
+# Copy the application files to the container
+COPY . .
+
+# Expose port 3000 to the outside world
+EXPOSE 3000
+
+# Define the command to run your application
+CMD ["node", "app.js"]
+
+
+
+
+app.py
+
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route('/')
+def hello_docker():
+    return 'Hello, Docker!'
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+
+
+dockerfile
+
+# Use the official Python image as the base image
+FROM python:3.9-slim
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the application files into the container
+COPY app.py /app
+
+# Install Flask
+RUN pip install --no-cache-dir Flask
+
+# Expose port 5000
+EXPOSE 5000
+
+# Command to run the Flask application
+CMD ["python", "app.py"]
+
+
+main.tf
+
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.31.0"
+    }
+  }
+}
+
+
+ec2.tf
+
+provider "aws" {
+
+  region = "ap-south-1"  # Specify the AWS region
+  access_key = "AKIAR3ZKPF3L2CFTQQKP"
+  secret_key = "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"
+}
+
+# Create a security group
+resource "aws_security_group" "allow_ssh" {
+  name        = "allow_ssh"
+  description = "Allow incoming SSH traffic"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+}
+# Create an EC2 instance
+resource "aws_instance" "example_instance" {
+  ami           = "ami-0287a05f0ef0e9d9a"  # Specify your desired AMI ID
+  instance_type = "t2.medium"      # Specify the instance type
+
+  # Associate the security group with the EC2 instance
+  vpc_security_group_ids = [aws_security_group.allow_ssh.id]
+
+  tags = {
+    Name = "example-instance"
+  }
+}
+
+
+
+
+resource "aws_db_instance" "myrds" {
+  identifier             = "task-db-instance"
+  allocated_storage      = 20
+  storage_type           = "gp2"
+  engine                 = "mysql"
+  engine_version         = "5.7"
+  instance_class         = "db.t2.micro"
+  username               = "sandy"
+  password               = "Sandeep#1"
+  port                   = 3306
+  publicly_accessible    = false
+
+  vpc_security_group_ids = ["sg-0f2ac6b99f8baaf6d"] 
+
+  parameter_group_name   = "default.mysql5.7"
+
+  maintenance_window     = "Mon:03:00-Mon:06:00"
+  backup_retention_period = 7
+  backup_window           = "02:00-03:00"
+}
+
+
+
+
